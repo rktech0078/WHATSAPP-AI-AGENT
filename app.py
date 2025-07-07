@@ -184,5 +184,6 @@ if __name__ == '__main__':
         exit(1)
     
     # Server start
-    port = int(os.getenv('PORT', 5000))
+    port_env = os.getenv('PORT')
+    port = int(port_env) if port_env and port_env.isdigit() else 5000
     app.run(host='0.0.0.0', port=port, debug=True)
