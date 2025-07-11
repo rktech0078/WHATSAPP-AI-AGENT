@@ -29,32 +29,35 @@ model = genai.GenerativeModel('gemini-2.0-flash')
 
 # School information - yahan apne school ki details daalo
 SCHOOL_INFO = """
-You are the official AI Assistant of AL-GHAZALI HIGH SCHOOL. Your role is to assist parents by answering their school-related queries in a helpful, polite, and informative manner.
+You are the official AI Assistant of AL-GHAZALI HIGH SCHOOL. Your role is to assist parents by answering their school-related queries in a helpful, polite, and informative manner. You must always provide accurate, up-to-date, and school-appropriate information. Never provide personal opinions or unrelated information.
 
 📍 School Details:
 - School Name: AL-GHAZALI HIGH SCHOOL
 - Address: 36-B, Landhi, Karachi
-- Contact Number: +92-313-2317505
+- Contact Number: +92-313-2317606
 - Email: rk8466995@gmail.com
-- Timings: 8:00 AM to 2:00 PM (Monday to Saturday)
-- Principal: Mr. Zakariya Sahab
+- website: https://mahadusman.com
+- Timings: 8:00 AM to 2:10 PM (Saturday to Thursday)
+- Principal: Mr Dr. Zakariya
 
 💳 Fee Structure:
-- Monthly Tuition Fee: According to the class Please check the class fee from the school website
-- Admission Fee: Rs. NEW: 4000 & OLD: 2500 (One-time)
+- Monthly Tuition Fee: According to the class. Please check the class fee from the school website.
+- Admission Fee: Rs. NEW: 4000 & OLD: 2500 (One-time for a whole year)
 
-🧠 Communication Guidelines:
-- If the parent speaks in **Roman Urdu**, reply in Roman Urdu.
-- If the parent writes in **English**, reply in English.
-- If you're unsure about a question, respond:
-  - In Urdu: "Maazrat chahta hoon, is silsilay mein mere paas mukammal maloomat nahi hai. Barae mehrbani school office se raabta farmaiye."
+🧠 Communication & Language Guidelines:
+- If the parent writes in **Roman Urdu** (Urdu written in Latin script) or **Urdu script**, always reply in **Urdu script** only. Do not use Roman Urdu in your reply.
+- If the parent writes in **English**, always reply in **English** only.
+- Never mix languages in a single response.
+- If you are unsure about a question, respond:
+  - In Urdu: "معذرت چاہتا ہوں، اس سلسلے میں میرے پاس مکمل معلومات نہیں ہیں۔ براہ مہربانی اسکول آفس سے رابطہ کریں۔"
   - In English: "Apologies, I do not have complete information regarding this matter. Kindly contact the school office for further assistance."
-  - If unclear, respond in both.
+  - If unclear, respond in both languages, but in separate sentences.
 
 📌 Important Instructions:
 - Only respond to **school-related** queries such as admissions, timings, fees, exams, and general info.
 - Always maintain a **polite, professional, and friendly tone**.
 - Never provide personal opinions or unrelated information.
+- Always follow the language instructions strictly.
 """
 
 
@@ -69,6 +72,13 @@ class WhatsAppAIAgent:
             if phone_number not in self.conversation_history:
                 self.conversation_history[phone_number] = []
             
+            # Detect language
+            detected_lang = self.detect_language(user_message)
+            if detected_lang == 'english':
+                lang_instruction = "Reply ONLY in English. Do not use any Urdu or Roman Urdu in your response."
+            else:
+                lang_instruction = "Reply ONLY in Urdu script (not Roman Urdu, not English). Do not use any English or Roman Urdu in your response."
+            
             # System prompt + user message
             prompt = f"""
             {SCHOOL_INFO}
@@ -78,7 +88,7 @@ class WhatsAppAIAgent:
             
             Parent's Question: {user_message}
             
-            Jo Roman Urdu mein baat karen to Roman Urdu mein jawab dein aur jo English mein baat karen to English mein jawab dein:
+            {lang_instruction}
             """
             
             response = model.generate_content(prompt)
@@ -110,6 +120,21 @@ class WhatsAppAIAgent:
             context += f"Parent: {conv['user']}\nAI: {conv['ai']}\n\n"
         
         return context if context else "Yeh pehla message hai."
+
+    def detect_language(self, text):
+        """Detects if the text is English, Roman Urdu, or Urdu script."""
+        # Urdu script: contains Arabic/Persian Unicode block
+        for char in text:
+            if '\u0600' <= char <= '\u06FF' or '\u0750' <= char <= '\u077F' or '\uFB50' <= char <= '\uFC3F' or '\uFE70' <= char <= '\uFEFF':
+                return 'urdu_script'
+        # Heuristic: if mostly English words, treat as English
+        english_words = set(['the', 'is', 'are', 'and', 'to', 'for', 'with', 'on', 'in', 'of', 'a', 'an', 'at', 'by', 'from', 'as', 'that', 'this', 'it', 'be', 'or', 'not', 'have', 'has', 'was', 'were', 'will', 'can', 'do', 'does', 'did', 'but', 'if', 'so', 'we', 'you', 'your', 'i', 'he', 'she', 'they', 'them', 'his', 'her', 'their', 'our', 'us'])
+        words = text.lower().split()
+        english_count = sum(1 for w in words if w in english_words)
+        if len(words) > 0 and english_count / len(words) > 0.5:
+            return 'english'
+        # Otherwise, assume Roman Urdu
+        return 'roman_urdu'
 
 # AI Agent instance
 ai_agent = WhatsAppAIAgent()
